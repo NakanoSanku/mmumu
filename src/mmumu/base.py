@@ -1,7 +1,7 @@
 import winreg
 from dataclasses import dataclass
 
-MUMU_UNINSTALL_KEY_PATH = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\MuMuPlayer-12.0"
+MUMU_UNINSTALL_KEY_PATH = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\MuMuPlayer"
 
 
 def get_mumu_path():
