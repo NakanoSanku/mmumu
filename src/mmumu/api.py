@@ -66,7 +66,8 @@ class MuMuApi:
             ]
 
     def connect(self, emulator_install_path: str, instance_index: int):
-        for connect in self.connect_list:
+        cls = type(self)
+        for connect in cls.connect_list:
             if (
                 connect.emulator_install_path == emulator_install_path
                 and connect.instance_index == instance_index
@@ -75,10 +76,20 @@ class MuMuApi:
         res = self.nemu.nemu_connect(emulator_install_path, instance_index)
         if res == 0:
             raise Exception("connect error")
+        cls.connect_list.append(
+            MuMuPlayerConnect(res, emulator_install_path, instance_index)
+        )
         return res
 
     def disconnect(self, handle: int):
-        return self.nemu.nemu_disconnect(handle)
+        res = self.nemu.nemu_disconnect(handle)
+        if res > 0:
+            raise Exception("disconnect error")
+        cls = type(self)
+        cls.connect_list = [
+            connect for connect in cls.connect_list if connect.handle != handle
+        ]
+        return res
 
     def get_display_id(self, handle: int, package_name: str, app_index: int):
         res = self.nemu.nemu_get_display_id(handle, package_name, app_index)
