@@ -1,8 +1,15 @@
 import json
+import os
 import subprocess
 from typing import Union
 
-from mmumu.base import MuMuWindowLayout, MuMuMangerCmdResult, get_mumu_path, MuMuPlayerInfo, MuMuPlayerBaseInfo
+from mmumu.base import (
+    MuMuWindowLayout,
+    MuMuMangerCmdResult,
+    get_mumu_path,
+    MuMuPlayerInfo,
+    MuMuPlayerBaseInfo,
+)
 
 
 class MuMuManger:
@@ -49,28 +56,49 @@ class MuMuManger:
         player_index_list_str = ",".join(str(i) for i in player_index_list)
         cmd = ["info", "-v", f"{player_index_list_str}"]
         result = self.run_command_json(cmd)
-        result_list:list[Union[MuMuPlayerBaseInfo, MuMuPlayerInfo, MuMuMangerCmdResult]] = []
-        for i in result:
-            if "errcode" in i:
-                result_list.append(MuMuMangerCmdResult(result["errcode"], result["errmsg"]))
-            if "pid" in i:
-                result_list.append(MuMuPlayerInfo(**result))
+        # Normalize result to a list of info dicts
+        if isinstance(result, dict):
+            if "index" in result or "errcode" in result:
+                infos = [result]
             else:
-                result_list.append(MuMuPlayerBaseInfo(**result))
-        return result_list
+                infos = list(result.values())
+        else:
+            infos = result
+
+        parsed: list[
+            Union[MuMuPlayerBaseInfo, MuMuPlayerInfo, MuMuMangerCmdResult]
+        ] = []
+        for info in infos:
+            if "errcode" in info and "index" not in info:
+                parsed.append(MuMuMangerCmdResult(info["errcode"], info["errmsg"]))
+            elif "pid" in info:
+                parsed.append(MuMuPlayerInfo(**info))
+            else:
+                parsed.append(MuMuPlayerBaseInfo(**info))
+        return parsed
 
     def get_all_players_info(self):
         cmd = ["info", "-v", "all"]
         result = self.run_command_json(cmd)
-        result_list: list[Union[MuMuPlayerBaseInfo, MuMuPlayerInfo, MuMuMangerCmdResult]] = []
-        for i in result:
-            if "errcode" in i:
-                result_list.append(MuMuMangerCmdResult(result["errcode"], result["errmsg"]))
-            if "pid" in i:
-                result_list.append(MuMuPlayerInfo(**result))
+        if isinstance(result, dict):
+            if "index" in result or "errcode" in result:
+                infos = [result]
             else:
-                result_list.append(MuMuPlayerBaseInfo(**result))
-        return result_list
+                infos = list(result.values())
+        else:
+            infos = result
+
+        parsed: list[
+            Union[MuMuPlayerBaseInfo, MuMuPlayerInfo, MuMuMangerCmdResult]
+        ] = []
+        for info in infos:
+            if "errcode" in info and "index" not in info:
+                parsed.append(MuMuMangerCmdResult(info["errcode"], info["errmsg"]))
+            elif "pid" in info:
+                parsed.append(MuMuPlayerInfo(**info))
+            else:
+                parsed.append(MuMuPlayerBaseInfo(**info))
+        return parsed
 
     def create_player(self, player_index: int, number: int = None, mini: bool = False):
         cmd = ["create", "-v", f"{player_index}"]
@@ -271,7 +299,7 @@ class MuMuManger:
 
     def hide_window_all_players(self):
         cmd = ["control", "-v", "all", "hide_window"]
-        self.run_command_multi_results(cmd)
+        return self.run_command_multi_results(cmd)
 
     def get_player_window_layout_info(self, player_index: int):
         cmd = ["control", "-v", f"{player_index}", "layout_window"]
@@ -511,8 +539,18 @@ class MuMuManger:
         return self.run_command_single_result(cmd)
 
     @staticmethod
-    def get_mumu_manger_path():
-        return rf"{get_mumu_path()}\shell\MuMuManager.exe"
+    def get_mumu_manger_path() -> str:
+        base_path = get_mumu_path()
+        candidates = [
+            os.path.join(base_path, "shell", "MuMuManager.exe"),
+            os.path.join(base_path, "nx_main", "MuMuManager.exe"),
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                return path
+        raise FileNotFoundError(
+            "MuMuManager.exe not found in any of: " + ", ".join(candidates)
+        )
 
     def run_command(self, command: list[str]):
         cmd = [self.manger_path]

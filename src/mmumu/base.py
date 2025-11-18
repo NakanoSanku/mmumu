@@ -1,19 +1,62 @@
+import os
 import winreg
 from dataclasses import dataclass
 
 MUMU_UNINSTALL_KEY_PATH = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\MuMuPlayer"
 
 
-def get_mumu_path():
+def get_mumu_path() -> str:
+    """
+    Return the MuMu installation directory resolved from the Windows registry.
+
+    The uninstall string is typically something like:
+        "C:\\Program Files\\Netease\\MuMu\\uninstall.exe" /S
+
+    This function extracts the executable path from the uninstall command
+    and then returns its parent directory.
+
+    Raises:
+        FileNotFoundError: If the MuMu uninstall key does not exist.
+        RuntimeError: If the uninstall entry cannot be read or parsed.
+    """
     try:
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, MUMU_UNINSTALL_KEY_PATH) as driver_key:
-            result = winreg.QueryValueEx(driver_key, "UninstallString")[0]
-            emulator_path = result[1:result.index("\\uninstall.exe")]
-            return emulator_path
-    except FileNotFoundError:
-        print(f"注册表键 '{MUMU_UNINSTALL_KEY_PATH}' 不存在")
-    except Exception as e:
-        print(f"发生错误: {e}")
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE, MUMU_UNINSTALL_KEY_PATH
+        ) as driver_key:
+            uninstall_value = winreg.QueryValueEx(driver_key, "UninstallString")[0]
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(
+            f"MuMuPlayer uninstall registry key '{MUMU_UNINSTALL_KEY_PATH}' not found"
+        ) from exc
+    except OSError as exc:
+        raise RuntimeError(f"Failed to read MuMuPlayer uninstall entry: {exc}") from exc
+
+    if not isinstance(uninstall_value, str) or not uninstall_value.strip():
+        raise RuntimeError(
+            f"Unexpected MuMuPlayer uninstall string value: {uninstall_value!r}"
+        )
+
+    cmd = uninstall_value.strip()
+
+    # Extract the executable part from the uninstall command.
+    if cmd[0] in ("'", '"'):
+        quote = cmd[0]
+        end = cmd.find(quote, 1)
+        if end == -1:
+            exe_part = cmd[1:]
+        else:
+            exe_part = cmd[1:end]
+    else:
+        # Take up to the first whitespace as the executable path.
+        exe_part = cmd.split()[0]
+
+    emulator_path = os.path.dirname(exe_part)
+    if not emulator_path:
+        raise RuntimeError(
+            f"Could not determine MuMuPlayer install directory from uninstall string: {uninstall_value!r}"
+        )
+
+    return emulator_path
 
 
 @dataclass(frozen=True)
@@ -42,6 +85,7 @@ class MuMuPlayerBaseInfo:
     is_process_started: bool
     hyperv_enabled: bool
 
+
 @dataclass
 class MuMuPlayerInfo:
     index: str
@@ -64,6 +108,7 @@ class MuMuPlayerInfo:
     launch_err_code: int
     launch_time: int
     headless_pid: int
+
 
 @dataclass(frozen=True)
 class MuMuPlayerConnect:

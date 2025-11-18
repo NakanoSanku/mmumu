@@ -1,8 +1,8 @@
+import os
 import ctypes
 from typing import List
 
-from mmumu.manger import get_mumu_path
-from mmumu.base import MuMuPlayerConnect
+from mmumu.base import MuMuPlayerConnect, get_mumu_path
 
 
 class MuMuApi:
@@ -15,8 +15,8 @@ class MuMuApi:
         """
         if dll_path is None:
             dll_path = MuMuApi.get_mumu_dll_path()
-        if self.nemu is None:
-            self.nemu = ctypes.CDLL(dll_path)
+        if MuMuApi.nemu is None:
+            MuMuApi.nemu = ctypes.CDLL(dll_path)
             # 定义返回类型和参数类型
             self.nemu.nemu_connect.restype = ctypes.c_int
             self.nemu.nemu_connect.argtypes = [ctypes.c_wchar_p, ctypes.c_int]
@@ -75,10 +75,19 @@ class MuMuApi:
         res = self.nemu.nemu_connect(emulator_install_path, instance_index)
         if res == 0:
             raise Exception("connect error")
+        self.connect_list.append(
+            MuMuPlayerConnect(
+                handle=res,
+                emulator_install_path=emulator_install_path,
+                instance_index=instance_index,
+            )
+        )
         return res
 
     def disconnect(self, handle: int):
-        return self.nemu.nemu_disconnect(handle)
+        result = self.nemu.nemu_disconnect(handle)
+        self.connect_list[:] = [c for c in self.connect_list if c.handle != handle]
+        return result
 
     def get_display_id(self, handle: int, package_name: str, app_index: int):
         res = self.nemu.nemu_get_display_id(handle, package_name, app_index)
@@ -103,7 +112,10 @@ class MuMuApi:
         return res
 
     def input_text(self, handle: int, size: int, buf: str):
-        res = self.nemu.nemu_input_text(handle, size, buf)
+        data = buf.encode("utf-8")
+        if size <= 0:
+            size = len(data)
+        res = self.nemu.nemu_input_text(handle, size, data)
         if res > 0:
             raise Exception("input_text error")
         return res
@@ -149,6 +161,16 @@ class MuMuApi:
         return res
 
     @staticmethod
-    def get_mumu_dll_path():
-        dll_path = rf"{get_mumu_path()}\shell\sdk\external_renderer_ipc.dll"
-        return dll_path
+    def get_mumu_dll_path() -> str:
+        base_path = get_mumu_path()
+        candidates = [
+            os.path.join(base_path, "shell", "sdk", "external_renderer_ipc.dll"),
+            os.path.join(base_path, "nx_main", "sdk", "external_renderer_ipc.dll"),
+        ]
+        for dll_path in candidates:
+            if os.path.exists(dll_path):
+                return dll_path
+        raise FileNotFoundError(
+            "MuMu SDK DLL 'external_renderer_ipc.dll' not found in any of: "
+            + ", ".join(candidates)
+        )
