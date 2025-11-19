@@ -3,27 +3,27 @@ High-level public API for the mmumu package.
 
 Typical usage:
 
-    from mmumu import MuMuManger, MuMuApi, get_mumu_path
+    from mmumu import MuMuManager, MuMuApi, get_mumu_path
 """
 
 from .base import (  # noqa: F401
-    MuMuMangerCmdResult,
+    MuMuManagerCmdResult,
     MuMuPlayerBaseInfo,
     MuMuPlayerConnect,
     MuMuPlayerInfo,
     MuMuWindowLayout,
     get_mumu_path,
 )
-from .manger import MuMuManger  # noqa: F401
+from .manager import MuMuManager  # noqa: F401
 from .api import MuMuApi  # noqa: F401
 
 __all__ = [
     "get_mumu_path",
-    "MuMuMangerCmdResult",
+    "MuMuManagerCmdResult",
     "MuMuWindowLayout",
     "MuMuPlayerBaseInfo",
     "MuMuPlayerInfo",
     "MuMuPlayerConnect",
-    "MuMuManger",
+    "MuMuManager",
     "MuMuApi",
 ]
